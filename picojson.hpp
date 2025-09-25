@@ -16,7 +16,7 @@ namespace detail {
             std::monostate,
             KeyValueNode*,
             std::string_view,
-            int,
+            double,
             bool
         >;
 
@@ -25,6 +25,37 @@ namespace detail {
         Value value;
         KeyValueNode* next;
     };
+
+
+    class Returnable {
+    public:
+        Returnable(Value value) : value_(value) {}
+        Returnable() {
+            value_ = std::monostate();
+        }
+        ~Returnable() = default;
+
+        operator double() const {
+            try {
+                std::cout << "printing int" << std::endl;
+                return std::get<double>(value_);
+            } catch (const std::bad_variant_access&) {
+                return 0;
+            }
+        }
+        operator std::string_view() {
+            try {
+                std::cout << "printing string view" << std::endl;
+                return std::get<std::string_view>(value_);
+            } catch (const std::bad_variant_access&) {
+                return {};
+            }
+        }
+
+    private:
+        Value value_;
+    };
+
 
     inline bool is_digit(char c) {
         return c >= '0' && c <= '9';
@@ -41,19 +72,18 @@ public:
     JsonObject(detail::KeyValueNode* root) : root_(root) {}
     ~JsonObject() = default;
 
-    detail::Value operator[](const char* key) {
+    detail::Returnable operator[](const char* key) {
         if (!root_) {
-            return {};
+            return detail::Returnable();
         }
         detail::KeyValueNode* current = root_;
         while (current->key != key) {
-            std::cout << "Key \"" << key << "\" not found." << std::endl;
             if (!current->next) {
-                return {};
+                return detail::Returnable();
             }
             current = current->next;
         }
-        return current->value;
+        return detail::Returnable(current->value);
     }
 
 private:
@@ -84,8 +114,6 @@ public:
      * @return JsonObject - The root JsonObject for this object.
      */
     JsonObject parse(const char* json_str) {
-        std::cout << "Max available nodes: " << k_max_nodes << std::endl; 
-        std::cout << "Size of variant: " << sizeof(detail::Value) << std::endl; 
         cursor_ = json_str;
         skip_whitespace(); 
         return JsonObject(parse_object());
@@ -145,14 +173,18 @@ private:
     }
 
 
-    int parse_int() {
+    /**
+     * @brief Parses a double from the json string
+     * 
+     * @return double - The parsed value
+     */
+    double parse_double() {
         const char* start = cursor_;
         while (detail::is_digit(*cursor_)) {
             cursor_++;
         }
-        int value{};
+        double value{};
         std::from_chars(start, cursor_, value);
-        std::cout << "Found: " << value << std::endl;
         return value;
     }
 
@@ -169,7 +201,7 @@ private:
         } else if (*cursor_ == '"') {
             value = parse_string();
         } else if (detail::is_digit(*cursor_)) {
-            value = parse_int();
+            value = parse_double();
         } else {
             value = std::monostate();
         }
