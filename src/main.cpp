@@ -11,7 +11,7 @@ int main() {
             }
         )";
     JsonObject test = parser.parse(example);
-    double value = test["key3"];
+    std::string_view value = test["key2"];
     std::cout << "Value: " << value << std::endl;
     return 0;
 }
