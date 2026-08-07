@@ -1,0 +1,2 @@
+## picojson
+This is a tool made for the Raspberry Pi Pico or any very memory constrained device as it uses static memory allocation instead of dynamic. It is a single file `picojson.hpp` library that allows for json parsing and object use. Supports basic key access with `value = object["key"]`.
