@@ -10,6 +10,10 @@
 class JsonObject;
 class JsonArray;
 
+/**
+ * @brief This is the namespace containing the core elements of the functionality 
+ * that need not be exposed.
+ */
 namespace detail {
     // Class tools
     struct KeyValueNode;
@@ -43,6 +47,10 @@ namespace detail {
     };
 
 
+    /**
+     * @brief This is a generic returnable class allowing the Value type to be returned
+     * as any of its variant types properly.
+     */
     class Returnable {
     public:
         Returnable(Value value) : value_(value) {}
@@ -118,12 +126,21 @@ private:
     detail::KeyValueNode* root_;
 };
 
-
+/**
+ * @brief The JSON method of representing an array. This is separate from JSON object due to 
+ * the lack of a key and thus saving space.
+ */
 class JsonArray {
 public:
     JsonArray(detail::ArrayNode* root = nullptr) : root_(root) {}
     ~JsonArray() = default;
 
+    /**
+     * @brief Allows for standary array access ex: value = array[index].
+     * 
+     * @param index The index to go to.
+     * @return detail::Returnable The value returned in the wrapper class to become the correct type.
+     */
     detail::Returnable operator[](size_t index) const {
         detail::ArrayNode* current = root_;
         size_t i = 0;
@@ -137,6 +154,9 @@ public:
         return detail::Returnable(); // Return null if out of bounds.
     }
 
+    /**
+     * @brief An iterator to allow for the use of for-each loops.
+     */
     class Iterator {
     public:
         Iterator(detail::ArrayNode* node) : current_(node) {}
