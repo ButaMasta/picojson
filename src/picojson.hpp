@@ -47,6 +47,11 @@ public:
         }
     }
 
+    // Clears the buffer for use.
+    void clear() {
+        size_ = 0;
+    }
+
     const char* data() const { return data_; }
     size_t length() const { return size_; }
     size_t size() const { return size_; }
@@ -607,6 +612,12 @@ public:
         buffer_ += "null";
         set_needs_comma();
         return *this;
+    }
+
+    void clear() {
+        buffer_.clear();
+        current_depth_ = 0;
+        needs_comma_[0] = false;
     }
 
 private:
