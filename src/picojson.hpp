@@ -11,6 +11,52 @@ class JsonObject;
 class JsonArray;
 
 /**
+ * @brief This is the class allowing for normal string appending and use but only 
+ * using static memory instead of dynamically allocated memory.
+ * 
+ * @tparam capacity The max capacity of the contained string.
+ */
+template <size_t Capacity>
+class StaticStringBuffer {
+public:
+    StaticStringBuffer() = default;
+
+    // Appending a single character.
+    StaticStringBuffer& operator+=(char c) {
+        if (size_ < Capacity) {
+            data_[size_++] = c;
+        }
+        return *this;
+    }
+
+    // Append a null-terminated string.
+    StaticStringBuffer& operator+=(const char* str) {
+        append(str, std::strlen(str));
+        return *this;
+    }
+
+    // Appending a char buffer with len.
+    void append(const char* str, size_t len) {
+        if ((size_ + len) <= Capacity) {
+            std::memcpy(data_ + size_, str, len);
+            size_ += len;
+        } else {
+            size_t available = Capacity - size_;
+            std::memcpy(data_ + size_, str, available);
+            size_ += available;
+        }
+    }
+
+    const char* data() const { return data_; }
+    size_t length() const { return size_; }
+    size_t size() const { return size_; }
+
+private:
+    char data_[Capacity];
+    size_t size_ = 0;
+};
+
+/**
  * @brief This is the namespace containing the core elements of the functionality 
  * that need not be exposed.
  */
@@ -18,7 +64,7 @@ namespace detail {
     // Class tools
     struct KeyValueNode;
     struct ArrayNode;
-
+    
     using Value = 
         std::variant<
             std::monostate,     // Represents JSON 'null'.
@@ -46,7 +92,6 @@ namespace detail {
         ArrayNode* next;
     };
 
-
     /**
      * @brief This is a generic returnable class allowing the Value type to be returned
      * as any of its variant types properly.
@@ -59,33 +104,41 @@ namespace detail {
         }
         ~Returnable() = default;
 
-        operator double() const {
-            if (const double* val = std::get_if<double>(&value_)) {
-                return *val;
-            }
-            return 0.0;
-        }
+        /**
+         * @brief A lambda function for converting any type within the variant to 
+         * a desired cast type, if possible.
+         * 
+         * This is confusing but it's extremely helpful. Essentially this is just saying
+         * for any casting type `T`, check what the actual type of the argument attempting
+         * to be cast is `ActualT` and compare against `T`. If it matches then we return the
+         * expected reference or value. If it does not match then we will just return the
+         * most basic version of the expected type or a null pointer.
+         * 
+         * @tparam T The type attempting to cast to.
+         * @return T - The type actually cast to, this will always match tparam T's type regardless
+         * of a successful type identification.
+         */
+        template <typename T>
+        operator T() const {
+            return std::visit([](auto&& arg) -> T {
+                using ActualT = std::decay_t<decltype(arg)>;
 
-        operator std::string_view() const {
-            if (const std::string_view* val = std::get_if<std::string_view>(&value_)) {
-                return *val;
-            }
-            return {};
+                // Direct conversions: double, bool, string_view.
+                if constexpr (std::is_same_v<ActualT, T>) {
+                    return arg;
+                }
+                // Handles returning a JSON Object pointer. 
+                else if constexpr (std::is_same_v<ActualT, KeyValueNode*> && std::is_same_v<T, JsonObject>) {
+                    return JsonObject(arg);
+                }
+                // Handles returning a JSON Array pointer.
+                else if constexpr (std::is_same_v<ActualT, ArrayNode*> && std::is_same_v<T, JsonArray>) {
+                    return JsonArray(arg);
+                }
+                // Return default type if there is not match.
+                return T{};
+            }, value_);
         }
-
-        operator bool() const {
-            if (const bool* val = std::get_if<bool>(&value_)) {
-                return *val;
-            }
-            return false;
-        }
-
-        bool is_null() const {
-            return std::holds_alternative<std::monostate>(value_);
-        }
-
-        operator JsonObject() const;
-        operator JsonArray() const;
 
     private:
         Value value_;
@@ -95,6 +148,62 @@ namespace detail {
     inline bool is_number_char(char c) {
         return (c >= '0' && c <= '9') || c == '-' || c == '.';
     }
+
+    template <size_t C>
+    inline void serialize_value(const Value& val, StaticStringBuffer<C>& out);
+
+    template <size_t C>
+    inline void serialize_object(const KeyValueNode* node, StaticStringBuffer<C>& out) {
+        out += '{';
+        const KeyValueNode* current = node;
+        while (current) {
+            out += '"';
+            out.append(current->key.data(), current->key.length());
+            out += "\":\"";
+            serialize_value(current->value, out);
+            current = current->next;
+            if (current) out += ',';
+        }
+        out += '}';
+    }
+
+    template <size_t C>
+    inline void serialize_array(const ArrayNode* node, StaticStringBuffer<C>& out) {
+        out += '[';
+        const ArrayNode* current = node;
+        while (current) {
+            serialize_value(current->value, out);
+            current = current->next;
+            if (current) out += ',';
+        }
+        out += ']';
+    }
+
+    template <size_t C>
+    inline void serialize_value(const Value& val, StaticStringBuffer<C>& out) {
+        std::visit([&out](auto&& arg) {
+            using T = std::decay_t<decltype(arg)>;
+
+            if constexpr (std::is_same_v<T, std::monostate>) {
+                out += "null";
+            } else if constexpr (std::is_same_v<T, KeyValueNode*>) {
+                serialize_object(arg, out);
+            } else if constexpr (std::is_same_v<T, ArrayNode*>) {
+                serialize_array(arg, out);
+            } else if constexpr (std::is_same_v<T, std::string_view>) {
+                out += '"';
+                out.append(arg.data(), arg.length());
+                out += '"';
+            } else if constexpr (std::is_same_v<T, double>) {
+                char buf[32];
+                auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), arg);
+                out.append(buf, ptr - buf);
+            } else if constexpr (std::is_same_v<T, bool>) {
+                out += arg ? "true" : "false";
+            }
+        }, val);
+    }
+
 }
 
 
@@ -186,40 +295,14 @@ private:
 
 
 /**
- * @brief Allows for an implicit cast of a value to a JsonObject.
- * 
- * @return JsonObject - The object if found from the value.
- */
-inline detail::Returnable::operator JsonObject() const {
-    if (detail::KeyValueNode* const *val = std::get_if<detail::KeyValueNode*>(&value_)) {
-        return JsonObject(*val);
-    }
-    return JsonObject(nullptr);
-}
-
-
-/**
- * @brief Allows for an implicit cast of a value to a JsonArray.
- * 
- * @return JsonArray - The array if found from the value.
- */
-inline detail::Returnable::operator JsonArray() const {
-    if (detail::ArrayNode* const *val = std::get_if<detail::ArrayNode*>(&value_)) {
-        return JsonArray(*val);
-    }
-    return JsonArray(nullptr);
-}
-
-
-/**
  * @brief The core parser handling the conversion of a JSON string to a 
  * JsonObject.
  * 
- * @tparam max_bytes The maximum bytes this parser is allowed to use on the
+ * @tparam MaxBytes The maximum bytes this parser is allowed to use on the
  * stack. There is zero dynamic allocation so this value should be at least
  * 1024 or higher for most cases.
  */
-template <std::size_t max_bytes>
+template <std::size_t MaxBytes>
 class JsonParser {
 public:
     JsonParser() = default;
@@ -241,7 +324,7 @@ public:
     }
 
 private:
-    alignas(std::max_align_t) std::byte pool_[max_bytes];
+    alignas(std::max_align_t) std::byte pool_[MaxBytes];
     size_t pool_offset_ = 0;
     const char* cursor_;
     
@@ -253,7 +336,7 @@ private:
      */
     template<typename T>
     inline T* alloc_node() {
-        if (pool_offset_ + sizeof(T) > max_bytes) {
+        if (pool_offset_ + sizeof(T) > MaxBytes) {
             return nullptr; // Out of memory.
         }
         T* node = reinterpret_cast<T*>(&pool_[pool_offset_]);
@@ -433,5 +516,124 @@ private:
             current = current->next;
         }
         return root;
+    }
+};
+
+
+/**
+ * @brief A JSON Writer class to create JSON more neatly instead of manually creating strings.
+ * 
+ * The way that this works is it just directly maps the objects, arrays, and values down
+ * to their string format and with a bit of context appends the appropriate characters
+ * or strings onto the serialized output buffer. 
+ * 
+ * @tparam MaxCapacity The max capacity of the string buffer output.
+ * @tparam MaxDepth The max depth for nested JSON structures.
+ */
+template <size_t MaxCapacity = 1024, size_t MaxDepth = 16>
+class JsonWriter {
+public:
+    JsonWriter() {
+        needs_comma_[0] = false;
+    }
+
+    // Returns the buffer directly for use.
+    const StaticStringBuffer<MaxCapacity>& get_buffer() const { return buffer_; }
+
+    JsonWriter& start_object() {
+        add_comma();
+        buffer_ += '{';
+        push_level();
+        return *this;
+    }
+
+    JsonWriter& end_object() {
+        buffer_ += '}';
+        pop_level();
+        set_needs_comma();
+        return *this;
+    }
+
+    JsonWriter& start_array() {
+        add_comma();
+        buffer_ += '[';
+        push_level();
+        return *this;
+    }
+
+    JsonWriter& end_array() {
+        buffer_ += ']';
+        pop_level();
+        set_needs_comma();
+        return *this;
+    }
+
+    JsonWriter& key(std::string_view k) {
+        add_comma();
+        buffer_ += '"';
+        buffer_.append(k.data(), k.length());
+        buffer_ += "\":";
+        needs_comma_[current_depth_] = false;
+        return *this;
+    }
+
+    JsonWriter& value(std::string_view v) {
+        add_comma();
+        buffer_ += '"';
+        buffer_.append(v.data(), v.length());
+        buffer_ += '"';
+        set_needs_comma();
+        return *this;
+    }
+
+    JsonWriter& value(double v) {
+        add_comma();
+        char buf[32];
+        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
+        buffer_.append(buf, ptr - buf);
+        set_needs_comma();
+        return *this;
+    }
+
+    JsonWriter& value(bool v) {
+        add_comma();
+        buffer_ += v ? "true" : "false";
+        set_needs_comma();
+        return *this;
+    }
+
+    JsonWriter& null_value() {
+        add_comma();
+        buffer_ += "null";
+        set_needs_comma();
+        return *this;
+    }
+
+private:
+    StaticStringBuffer<MaxCapacity> buffer_;
+    bool needs_comma_[MaxDepth];
+    size_t current_depth_ = 0;
+
+    inline void push_level() {
+        if ((current_depth_ + 1) < MaxDepth) {
+            current_depth_++;
+            needs_comma_[current_depth_] = false;
+        }
+    }
+
+    inline void pop_level() {
+        if (current_depth_ > 0) {
+            current_depth_--;
+        }
+    }
+
+    inline void add_comma() {
+        if (needs_comma_[current_depth_]) {
+            buffer_ += ',';
+        }
+    }
+
+    inline void set_needs_comma() {
+        needs_comma_[current_depth_] = true;
     }
 };
