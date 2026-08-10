@@ -591,6 +591,10 @@ public:
         return *this;
     }
 
+    JsonWriter& value(const char* v) {
+        return value(std::string_view(v));
+    }
+
     JsonWriter& value(double v) {
         add_comma();
         char buf[32];

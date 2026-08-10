@@ -89,6 +89,32 @@ int main() {
         std::cout << "[PASS] Memory was safely truncated without overflowing the stack!\n";
     }
 
+    // ==========================================
+    // TEST 7: Deeply nested JSON
+    // ==========================================
+    writer.clear();
+    writer.start_object()
+        .key("key1").start_array()
+                .value(true)
+                .value(false)
+                .value("nested string")
+                .start_array()
+                    .value("more nested")
+                    .start_object()
+                        .key("even more").value("nested!")
+                    .end_object()
+                .end_array()
+                .value(3.45)
+            .end_array()
+        .key("key2").value("value2")
+        .key("key3").start_object()
+                .key("nestedkey1").value(true)
+            .end_object()
+    .end_object();
+    const auto buf = writer.get_buffer();
+    std::cout << "\nGenerated JSON: " << std::string_view(buf.data(), buf.length()) << "\nExpecting nested string in first array to be present.\n";
+
+
     std::cout << "\nAll advanced stress tests completed successfully!\n";
     return 0;
 }
