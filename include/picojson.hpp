@@ -334,6 +334,9 @@ public:
         return detail::Returnable(parse_value());
     }
 
+    // Helper function to see memory used when parsing, useful for tuning the buffer.
+    size_t get_used_memory() const { return pool_offset_; }
+
 private:
     alignas(std::max_align_t) std::byte pool_[MaxBytes];
     size_t pool_offset_ = 0;
