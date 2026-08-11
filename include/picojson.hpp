@@ -5,6 +5,8 @@
 #include <string_view>
 #include <variant>
 #include <charconv>
+#include <cstdint>
+#include <type_traits>
 
 
 class JsonObject;
@@ -131,6 +133,10 @@ namespace detail {
                 // Direct conversions: double, bool, string_view.
                 if constexpr (std::is_same_v<ActualT, T>) {
                     return arg;
+                }
+                // Automatically cast a parsed double into any requested integer type.
+                else if constexpr (std::is_same_v<ActualT, double> && std::is_integral_v<T>) {
+                    return static_cast<T>(arg);
                 }
                 // Handles returning a JSON Object pointer. 
                 else if constexpr (std::is_same_v<ActualT, KeyValueNode*> && std::is_same_v<T, JsonObject>) {
@@ -596,6 +602,24 @@ public:
     }
 
     JsonWriter& value(double v) {
+        add_comma();
+        char buf[32];
+        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
+        buffer_.append(buf, ptr - buf);
+        set_needs_comma();
+        return *this;
+    }
+
+    JsonWriter& value(int v) {
+        add_comma();
+        char buf[32];
+        auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
+        buffer_.append(buf, ptr - buf);
+        set_needs_comma();
+        return *this;
+    }
+
+    JsonWriter& value(uint32_t v) {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
