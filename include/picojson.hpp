@@ -342,7 +342,7 @@ private:
  * stack. There is zero dynamic allocation so this value should be at least
  * 1024 or higher for most cases.
  */
-template <std::size_t MaxBytes>
+template <std::size_t MaxBytes = 1024>
 class JsonParser {
 public:
     JsonParser() = default;
