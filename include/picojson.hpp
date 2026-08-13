@@ -90,7 +90,8 @@ namespace detail {
             KeyValueNode*,      // Represents JSON object.
             ArrayNode*,         // Represents JSON array.
             std::string_view,   // Represents JSON string.
-            float,              // Represents JSON number.
+            float,              // Represents JSON decimals.
+            int32_t,            // Represents JSON integers.
             bool                // Represents JSON boolean.
         >;
 
@@ -146,12 +147,16 @@ namespace detail {
                 if constexpr (std::is_same_v<ActualT, T>) {
                     return arg;
                 }
-                // Safely handle parsing numbers back into doubles or floats.
-                else if constexpr (std::is_same_v<ActualT, float> && (std::is_same_v<T, double> || std::is_same_v<T, float>)) {
+                // Handle float to any floating point type.
+                else if constexpr (std::is_same_v<ActualT, float> && std::is_floating_point_v<T>) {
                     return static_cast<T>(arg);
                 }
                 // Automatically cast a parsed float into any requested integer type.
                 else if constexpr (std::is_same_v<ActualT, float> && std::is_integral_v<T>) {
+                    return static_cast<T>(arg);
+                }
+                // Handle int32_t to any integer type.
+                else if constexpr (std::is_same_v<ActualT, int32_t> && std::is_integral_v<T>) {
                     return static_cast<T>(arg);
                 }
                 // Handles returning a JSON Object pointer. 
@@ -221,7 +226,7 @@ namespace detail {
                 out += '"';
                 out.append(arg.data(), arg.length());
                 out += '"';
-            } else if constexpr (std::is_same_v<T, double>) {
+            } else if constexpr (std::is_same_v<T, float> || std::is_same_v<int32_t>) {
                 char buf[32];
                 auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), arg);
                 out.append(buf, ptr - buf);
@@ -437,19 +442,34 @@ private:
 
 
     /**
-     * @brief Parses a float from the json string
+     * @brief Parses a float or int32_t from the json string
      * 
-     * @return float - The parsed value
+     * @return detail::Value - The parsed value (float or int32_t)
      */
-    float parse_float() {
+    detail::Value parse_number() {
         const char* start = cursor_;
+        bool has_decimal = false;
+
         while (detail::is_number_char(*cursor_)) {
+            if (*cursor_ == '.') {
+                has_decimal = true;
+            }
             cursor_++;
         }
-        float value{};
-        std::from_chars(start, cursor_, value);
-        cursor_--;  // Ensure next_token does not skip a token.
-        return value;
+
+        detail::Value result;
+        if (has_decimal) {
+            float value{};
+            std::from_chars(start, cursor_, value);
+            result = value;
+        } else {
+            int32_t value{};
+            std::from_chars(start, cursor_, value);
+            result = value;
+        }
+
+        cursor_--; // Ensure it doesnt skip a token.
+        return result;
     }
 
 
@@ -482,7 +502,7 @@ private:
         } else if (*cursor_ == '"') {
             value = parse_string();
         } else if (detail::is_number_char(*cursor_)) {
-            value = parse_float();
+            value = parse_number();
         } else if (*cursor_ == 't' && match_literal("true", 4)) {
             value = true;
         } else if (*cursor_ == 'f' && match_literal("false", 5)) {

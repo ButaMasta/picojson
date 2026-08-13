@@ -28,6 +28,8 @@ int main() {
     std::cout << "std::string_view Alignment: " << alignof(std::string_view) << " bytes\n";
     std::cout << "double Size:                " << sizeof(double) << " bytes\n";
     std::cout << "double Alignment:           " << alignof(double) << " bytes\n";
+    std::cout << "int32_t Size:               " << sizeof(int32_t) << " bytes\n";
+    std::cout << "int32_t Alignment:          " << alignof(int32_t) << " bytes\n";
     std::cout << "Starting picojson Advanced Stress Tests...\n\n";
 
     // ==========================================
@@ -133,6 +135,7 @@ int main() {
         .key("key2").value("value2")
         .key("key3").start_object()
                 .key("nestedkey1").value(true)
+                .key("testing int").value(5)
             .end_object()
     .end_object();
     const auto buf = writer.get_buffer();
