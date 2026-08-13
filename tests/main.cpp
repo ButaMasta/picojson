@@ -1,12 +1,33 @@
 #include <iostream>
+#include <bits/c++config.h>
 #include <string_view>
 #include "../include/picojson.hpp"
 
 static JsonParser<2048> parser;
 static JsonWriter<512> writer;
 
+void print_used_memory() {
+    std::cout << "Parser consumed: " << parser.get_used_memory() << " bytes.\n";
+}
 
 int main() {
+    std::cout << "--- Memory Footprint Analysis ---\n";
+    std::cout << "Pointer Size:         " << sizeof(void*) << " bytes\n";
+    std::cout << "Float Size:           " << sizeof(float) << " bytes\n";
+    std::cout << "double Size:          " << sizeof(double) << " bytes\n";
+    std::cout << "string_view Size:     " << sizeof(std::string_view) << " bytes\n";
+    std::cout << "Value Variant Size:   " << sizeof(detail::Value) << " bytes\n";
+    std::cout << "KeyValueNode Size:    " << sizeof(detail::KeyValueNode) << " bytes\n";
+    std::cout << "ArrayNode Size:       " << sizeof(detail::ArrayNode) << " bytes\n";
+    std::cout << "Variant (double, std::string_view, KeyValueNode*) Size:   " << sizeof(std::variant<double, std::string_view, detail::KeyValueNode*>) << " bytes\n";
+    std::cout << "Variant (float, std::string_view, KeyValueNode*) Size:    " << sizeof(std::variant<float, std::string_view, detail::KeyValueNode*>) << " bytes\n";
+    std::cout << "Variant (double, std::string_view, KeyValueNode*) Alignment:   " << alignof(std::variant<double, std::string_view, detail::KeyValueNode*>) << " bytes\n";
+    std::cout << "Variant (float, std::string_view, KeyValueNode*) Alignment:    " << alignof(std::variant<float, std::string_view, detail::KeyValueNode*>) << " bytes\n";
+    std::cout << "--- Alignment on Current Architecture ---\n";
+    std::cout << "std::string_view Size:      " << sizeof(std::string_view) << " bytes\n";
+    std::cout << "std::string_view Alignment: " << alignof(std::string_view) << " bytes\n";
+    std::cout << "double Size:                " << sizeof(double) << " bytes\n";
+    std::cout << "double Alignment:           " << alignof(double) << " bytes\n";
     std::cout << "Starting picojson Advanced Stress Tests...\n\n";
 
     // ==========================================
@@ -15,6 +36,7 @@ int main() {
     std::cout << "--- [Test 1] Parsing & Extraction ---\n";
     char test_payload[] = R"({"username": "ButaBot", "is_bot": true, "heartbeat": 41250})";
     JsonObject root = parser.parse(test_payload);
+    print_used_memory();
     
     std::string_view username = root["username"];
     double heartbeat = root["heartbeat"];
@@ -41,6 +63,7 @@ int main() {
     std::cout << "--- [Test 4] Whitespace & Empty Structures ---\n";
     char whitespace_payload[] = "   \n\t { \n  \"empty_arr\" :  [   ] \n , \t \"empty_obj\" : { } }  ";
     JsonObject ws_root = parser.parse(whitespace_payload);
+    print_used_memory();
     
     JsonArray empty_arr = ws_root["empty_arr"];
     JsonObject empty_obj = ws_root["empty_obj"];
@@ -61,6 +84,7 @@ int main() {
     // Missing the closing brace for the object
     char broken_payload[] = R"({ "broken_key": "value", "unclosed_array": [1, 2, 3)";
     JsonObject broken_root = parser.parse(broken_payload);
+    print_used_memory();
     
     // The parser should realize it's invalid and return a null object, 
     // so accessing keys should safely fall back to defaults.

@@ -90,7 +90,7 @@ namespace detail {
             KeyValueNode*,      // Represents JSON object.
             ArrayNode*,         // Represents JSON array.
             std::string_view,   // Represents JSON string.
-            double,             // Represents JSON number.
+            float,              // Represents JSON number.
             bool                // Represents JSON boolean.
         >;
 
@@ -142,12 +142,16 @@ namespace detail {
             return std::visit([](auto&& arg) -> T {
                 using ActualT = std::decay_t<decltype(arg)>;
 
-                // Direct conversions: double, bool, string_view.
+                // Direct conversions: bool.
                 if constexpr (std::is_same_v<ActualT, T>) {
                     return arg;
                 }
-                // Automatically cast a parsed double into any requested integer type.
-                else if constexpr (std::is_same_v<ActualT, double> && std::is_integral_v<T>) {
+                // Safely handle parsing numbers back into doubles or floats.
+                else if constexpr (std::is_same_v<ActualT, float> && (std::is_same_v<T, double> || std::is_same_v<T, float>)) {
+                    return static_cast<T>(arg);
+                }
+                // Automatically cast a parsed float into any requested integer type.
+                else if constexpr (std::is_same_v<ActualT, float> && std::is_integral_v<T>) {
                     return static_cast<T>(arg);
                 }
                 // Handles returning a JSON Object pointer. 
@@ -427,21 +431,22 @@ private:
         }
         cursor_ = read_ptr;
 
-        return std::string_view(cursor_ - (read_ptr - start), static_cast<size_t>(start - (cursor_ - (read_ptr - start))));
+        return std::string_view(cursor_ - (read_ptr - start), 
+                                static_cast<uint16_t>(start - (cursor_ - (read_ptr - start))));
     }
 
 
     /**
-     * @brief Parses a double from the json string
+     * @brief Parses a float from the json string
      * 
-     * @return double - The parsed value
+     * @return float - The parsed value
      */
-    double parse_double() {
+    float parse_float() {
         const char* start = cursor_;
         while (detail::is_number_char(*cursor_)) {
             cursor_++;
         }
-        double value{};
+        float value{};
         std::from_chars(start, cursor_, value);
         cursor_--;  // Ensure next_token does not skip a token.
         return value;
@@ -477,7 +482,7 @@ private:
         } else if (*cursor_ == '"') {
             value = parse_string();
         } else if (detail::is_number_char(*cursor_)) {
-            value = parse_double();
+            value = parse_float();
         } else if (*cursor_ == 't' && match_literal("true", 4)) {
             value = true;
         } else if (*cursor_ == 'f' && match_literal("false", 5)) {
