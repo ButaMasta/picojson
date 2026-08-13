@@ -21,37 +21,49 @@ class JsonArray;
 template <size_t Capacity>
 class StaticStringBuffer {
 public:
-    StaticStringBuffer() = default;
+    StaticStringBuffer() {
+        // Start with a null terminator.
+        if (Capacity > 0) data_[0] = '\0';
+    }
 
     // Appending a single character.
     StaticStringBuffer& operator+=(char c) {
-        if (size_ < Capacity) {
+        // Check if there is space for the character and the null terminator.
+        if (Capacity > 0 && size_ < (Capacity - 1)) {
             data_[size_++] = c;
+            data_[size_] = '\0'; // Always append a null terminator.
         }
         return *this;
     }
 
     // Append a null-terminated string.
     StaticStringBuffer& operator+=(const char* str) {
-        append(str, std::strlen(str));
+        if (str) {
+            append(str, std::strlen(str));
+        }
         return *this;
     }
 
     // Appending a char buffer with len.
     void append(const char* str, size_t len) {
-        if ((size_ + len) <= Capacity) {
-            std::memcpy(data_ + size_, str, len);
-            size_ += len;
-        } else {
-            size_t available = Capacity - size_;
-            std::memcpy(data_ + size_, str, available);
-            size_ += available;
+        // Early exit.
+        if (Capacity == 0 || size_ >= (Capacity - 1) || str == nullptr || len == 0) {
+            return;
         }
+
+        // Calculate available space, reserving 1 byte for null-terminator.
+        size_t available = (Capacity - 1) - size_;
+        size_t to_copy = (len < available) ? len : available;
+
+        std::memcpy(data_ + size_, str, to_copy);
+        size_ += to_copy;
+        data_[size_] = '\0'; // Always append a null terminator.
     }
 
     // Clears the buffer for use.
     void clear() {
         size_ = 0;
+        if (Capacity > 0) data_[0] = '\0';
     }
 
     const char* data() const { return data_; }
@@ -300,6 +312,14 @@ public:
         detail::ArrayNode* current_;
     };
 
+    Iterator begin() const {
+        return Iterator(root_);
+    }
+
+    Iterator end() const {
+        return Iterator(nullptr);
+    }
+
 private:
     detail::ArrayNode* root_;
 };
@@ -326,7 +346,7 @@ public:
      * is being used.
      * @return detail::Returnable - The generic root value of a JSON payload.
      */
-    JsonObject parse(const char* json_str) {
+    JsonObject parse(char* json_str) {
         cursor_ = json_str;
         pool_offset_ = 0;
         skip_whitespace();
@@ -340,7 +360,7 @@ public:
 private:
     alignas(std::max_align_t) std::byte pool_[MaxBytes];
     size_t pool_offset_ = 0;
-    const char* cursor_;
+    char* cursor_;
     
     /**
      * @brief Generic allocator to reserve space in the pool.
@@ -369,7 +389,9 @@ private:
      * @brief Finds the next token from the current: {, ", [, etc.
      */
     inline void next_token() {
-        cursor_++;
+        if (*cursor_ != '\0') {
+            cursor_++;
+        }
         skip_whitespace();
     }
 
@@ -381,14 +403,31 @@ private:
      */
     std::string_view parse_string() {
         if (*cursor_ != '"') { return {}; }
-        const char* start = ++cursor_;
-        while (*cursor_ && *cursor_ != '"') {
-            if (*cursor_ == '\\' && *(cursor_ + 1) == '"') {
-                cursor_++;
+        cursor_++; // Skip the quote.
+        
+        char* start = cursor_;  // Write pointer.
+        char* read_ptr = cursor_;   // Read pointer.
+
+        while (*read_ptr && *read_ptr != '"') {
+            if (*read_ptr == '\\' && *(read_ptr + 1) != '\0') {
+                read_ptr++; // Skip the backslash.
+                switch (*read_ptr) {
+                    case '"': *start++ = '"'; break;
+                    case '\\': *start++ = '\\'; break;
+                    case 'n': *start++ = '\n'; break;
+                    case 'r': *start++ = '\r'; break;
+                    case 't': *start++ = '\t'; break;
+                    default: *start++ = *read_ptr; break;
+                }
+            } else {
+                // Normal character. Copy it over.
+                *start++ = *read_ptr;
             }
-            cursor_++;
+            read_ptr++;
         }
-        return std::string_view(start, static_cast<size_t>(cursor_ - start));
+        cursor_ = read_ptr;
+
+        return std::string_view(cursor_ - (read_ptr - start), static_cast<size_t>(start - (cursor_ - (read_ptr - start))));
     }
 
 

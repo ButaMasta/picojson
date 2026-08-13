@@ -13,7 +13,7 @@ int main() {
     // TEST 1: Parsing and Universal Casting
     // ==========================================
     std::cout << "--- [Test 1] Parsing & Extraction ---\n";
-    const char* test_payload = R"({"username": "ButaBot", "is_bot": true, "heartbeat": 41250})";
+    char test_payload[] = R"({"username": "ButaBot", "is_bot": true, "heartbeat": 41250})";
     JsonObject root = parser.parse(test_payload);
     
     std::string_view username = root["username"];
@@ -39,7 +39,7 @@ int main() {
     // TEST 4: Empty Structures & Extreme Whitespace
     // ==========================================
     std::cout << "--- [Test 4] Whitespace & Empty Structures ---\n";
-    const char* whitespace_payload = "   \n\t { \n  \"empty_arr\" :  [   ] \n , \t \"empty_obj\" : { } }  ";
+    char whitespace_payload[] = "   \n\t { \n  \"empty_arr\" :  [   ] \n , \t \"empty_obj\" : { } }  ";
     JsonObject ws_root = parser.parse(whitespace_payload);
     
     JsonArray empty_arr = ws_root["empty_arr"];
@@ -59,7 +59,7 @@ int main() {
     // ==========================================
     std::cout << "--- [Test 5] Malformed JSON Handling ---\n";
     // Missing the closing brace for the object
-    const char* broken_payload = R"({ "broken_key": "value", "unclosed_array": [1, 2, 3)";
+    char broken_payload[] = R"({ "broken_key": "value", "unclosed_array": [1, 2, 3)";
     JsonObject broken_root = parser.parse(broken_payload);
     
     // The parser should realize it's invalid and return a null object, 
@@ -81,9 +81,9 @@ int main() {
 
     const auto& tiny_buf = tiny_writer.get_buffer();
     
-    std::cout << "Tiny Buffer Size Limit: 32\n";
-    std::cout << "Actual Written Length:  " << tiny_buf.length() << "\n";
-    std::cout << "Truncated Output:       " << tiny_buf.data() << "\n\n";
+    std::cout << "Tiny Buffer Size Limit: 32" << std::endl;
+    std::cout << "Actual Written Length:  " << tiny_buf.length() << std::endl;
+    std::cout << "Truncated Output:       " << tiny_buf.data() << "\n" << std::endl;
     
     if (tiny_buf.length() <= 32) {
         std::cout << "[PASS] Memory was safely truncated without overflowing the stack!\n";
