@@ -441,33 +441,36 @@ private:
      * @return std::string_view The zero copy reference to the parsed string.
      */
     std::string_view parse_string() {
-        if (*cursor_ != '"') { return {}; }
+        if (*cursor_ != '"') {
+            last_error_ = ParseError::InvalidFormat;
+            return {};
+        }
         cursor_++; // Skip the quote.
         
-        char* start = cursor_;  // Write pointer.
+        char* original_start = cursor_;
+        char* write_ptr = cursor_;  // Write pointer.
         char* read_ptr = cursor_;   // Read pointer.
 
         while (*read_ptr && *read_ptr != '"') {
             if (*read_ptr == '\\' && *(read_ptr + 1) != '\0') {
                 read_ptr++; // Skip the backslash.
                 switch (*read_ptr) {
-                    case '"': *start++ = '"'; break;
-                    case '\\': *start++ = '\\'; break;
-                    case 'n': *start++ = '\n'; break;
-                    case 'r': *start++ = '\r'; break;
-                    case 't': *start++ = '\t'; break;
-                    default: *start++ = *read_ptr; break;
+                    case '"': *write_ptr++ = '"'; break;
+                    case '\\': *write_ptr++ = '\\'; break;
+                    case 'n': *write_ptr++ = '\n'; break;
+                    case 'r': *write_ptr++ = '\r'; break;
+                    case 't': *write_ptr++ = '\t'; break;
+                    default: *write_ptr++ = *read_ptr; break;
                 }
             } else {
                 // Normal character. Copy it over.
-                *start++ = *read_ptr;
+                *write_ptr++ = *read_ptr;
             }
             read_ptr++;
         }
         cursor_ = read_ptr;
 
-        return std::string_view(cursor_ - (read_ptr - start), 
-                                static_cast<uint16_t>(start - (cursor_ - (read_ptr - start))));
+        return std::string_view(original_start, static_cast<size_t>(write_ptr - original_start));
     }
 
 

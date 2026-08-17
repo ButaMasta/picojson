@@ -41,7 +41,7 @@ int main() {
     print_used_memory();
     
     std::string_view username = root["username"];
-    double heartbeat = root["heartbeat"];
+    uint32_t heartbeat = root["heartbeat"];
     std::cout << "Username:  " << username << " (Expected: ButaBot)\n";
     std::cout << "Heartbeat: " << heartbeat << " (Expected: 41250)\n\n";
 
@@ -49,7 +49,7 @@ int main() {
     // TEST 2: Missing or Invalid Keys
     // ==========================================
     std::cout << "--- [Test 2] Missing Keys Fallback ---\n";
-    double missing_number = root["does_not_exist"]; 
+    uint32_t missing_number = root["does_not_exist"]; 
     std::cout << "Missing Number: " << missing_number << " (Expected: 0)\n\n";
 
     // ==========================================
@@ -76,7 +76,7 @@ int main() {
               << (out_of_bounds.empty() ? "Safe (Empty)" : out_of_bounds) << "\n";
               
     // Testing missing key on empty object
-    double obj_miss = empty_obj["anything"];
+    uint32_t obj_miss = empty_obj["anything"];
     std::cout << "Empty object key access: " << obj_miss << " (Expected: 0)\n\n";
 
     // ==========================================
