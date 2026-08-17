@@ -343,8 +343,10 @@ private:
  * @tparam MaxBytes The maximum bytes this parser is allowed to use on the
  * stack. There is zero dynamic allocation so this value should be at least
  * 1024 or higher for most cases.
+ * 
+ * @tparam MaxDepth The maximum depth of a newsted JSON object.
  */
-template <std::size_t MaxBytes = 1024>
+template <std::size_t MaxBytes = 1024, std::size_t MaxDepth = 16>
 class JsonParser {
 public:
     JsonParser() = default;
@@ -353,7 +355,8 @@ public:
     enum class ParseError {
         None,
         OutOfMemory,
-        InvalidFormat
+        InvalidFormat,
+        DepthExceeded
     };
 
     /**
@@ -367,6 +370,7 @@ public:
     JsonObject parse(char* json_str) {
         cursor_ = json_str;
         pool_offset_ = 0;
+        current_depth_ = 0;
         last_error_ = ParseError::None;
         skip_whitespace();
 
@@ -382,6 +386,7 @@ private:
     alignas(std::max_align_t) std::byte pool_[MaxBytes];
     size_t pool_offset_ = 0;
     char* cursor_;
+    size_t current_depth_ = 0;
     ParseError last_error_ = ParseError::None;
     
     /**
@@ -544,6 +549,13 @@ private:
      * the object.
      */
     detail::KeyValueNode* parse_object() {
+        // Check and increment depth.
+        if (current_depth_ >= MaxDepth) {
+            last_error_ = ParseError::DepthExceeded;
+            return nullptr;
+        }
+        current_depth_++;
+
         // Make sure cursor is at the start of an object.
         if (*cursor_ != '{') {
             last_error_ = ParseError::InvalidFormat;
@@ -585,6 +597,7 @@ private:
             if (!current->next) return nullptr; // Out of memory.
             current = current->next;
         }
+        current_depth_--;
         return root;
     }
 
@@ -595,6 +608,13 @@ private:
      * @return detail::ArrayNode* The ArrayNode head reference to the array.
      */
     detail::ArrayNode* parse_array() {
+        // Check and increment depth.
+        if (current_depth_ >= MaxDepth) {
+            last_error_ = ParseError::DepthExceeded;
+            return nullptr;
+        }
+        current_depth_++;
+
         if (*cursor_ != '[') return nullptr;
         next_token();
 
@@ -624,6 +644,7 @@ private:
             if (!current->next) return nullptr; // Out of memory.
             current = current->next;
         }
+        current_depth_--;
         return root;
     }
 };
