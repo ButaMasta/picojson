@@ -381,9 +381,15 @@ private:
      */
     template<typename T>
     inline T* alloc_node() {
-        if (pool_offset_ + sizeof(T) > MaxBytes) {
+        size_t alignment = alignof(T);
+
+        size_t remainder = pool_offset_ % alignment;
+        size_t padding = (remainder == 0) ? 0 : (alignment - remainder);
+
+        if (pool_offset_ + padding + sizeof(T) > MaxBytes) {
             return nullptr; // Out of memory.
         }
+        pool_offset_ += padding;
         T* node = reinterpret_cast<T*>(&pool_[pool_offset_]);
         pool_offset_ += sizeof(T);
         return node;
