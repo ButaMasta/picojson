@@ -229,7 +229,9 @@ namespace detail {
             } else if constexpr (std::is_same_v<T, float> || std::is_same_v<int32_t>) {
                 char buf[32];
                 auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), arg);
-                out.append(buf, ptr - buf);
+                if (ec == std::errc()) {
+                    out.append(buf, ptr - buf);
+                }
             } else if constexpr (std::is_same_v<T, bool>) {
                 out += arg ? "true" : "false";
             }
@@ -668,11 +670,13 @@ public:
         return value(std::string_view(v));
     }
 
-    JsonWriter& value(double v) {
+    JsonWriter& value(float v) {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
-        buffer_.append(buf, ptr - buf);
+        if (ec == std::errc()) {
+            buffer_.append(buf, ptr - buf);
+        }
         set_needs_comma();
         return *this;
     }
@@ -681,7 +685,9 @@ public:
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
-        buffer_.append(buf, ptr - buf);
+        if (ec == std::errc()) {
+            buffer_.append(buf, ptr - buf);
+        }
         set_needs_comma();
         return *this;
     }
@@ -690,7 +696,9 @@ public:
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
-        buffer_.append(buf, ptr - buf);
+        if (ec == std::errc()) {
+            buffer_.append(buf, ptr - buf);
+        }
         set_needs_comma();
         return *this;
     }
