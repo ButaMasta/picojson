@@ -66,6 +66,11 @@ public:
         if (Capacity > 0) data_[0] = '\0';
     }
 
+    // Check if the buffer is full.
+    bool is_full() const {
+        return Capacity == 0 || size_ >= (Capacity - 1);
+    }
+
     const char* data() const { return data_; }
     size_t length() const { return size_; }
     size_t size() const { return size_; }
@@ -670,35 +675,35 @@ public:
     // Returns the buffer directly for use.
     const StaticStringBuffer<MaxCapacity>& get_buffer() const { return buffer_; }
 
-    JsonWriter& start_object() {
+    JsonWriter& start_object() const {
         add_comma();
         buffer_ += '{';
         push_level();
         return *this;
     }
 
-    JsonWriter& end_object() {
+    JsonWriter& end_object() const {
         buffer_ += '}';
         pop_level();
         set_needs_comma();
         return *this;
     }
 
-    JsonWriter& start_array() {
+    JsonWriter& start_array() const {
         add_comma();
         buffer_ += '[';
         push_level();
         return *this;
     }
 
-    JsonWriter& end_array() {
+    JsonWriter& end_array() const {
         buffer_ += ']';
         pop_level();
         set_needs_comma();
         return *this;
     }
 
-    JsonWriter& key(std::string_view k) {
+    JsonWriter& key(std::string_view k) const {
         add_comma();
         buffer_ += '"';
         buffer_.append(k.data(), k.length());
@@ -707,7 +712,7 @@ public:
         return *this;
     }
 
-    JsonWriter& value(std::string_view v) {
+    JsonWriter& value(std::string_view v) const {
         add_comma();
         buffer_ += '"';
         buffer_.append(v.data(), v.length());
@@ -716,11 +721,11 @@ public:
         return *this;
     }
 
-    JsonWriter& value(const char* v) {
+    JsonWriter& value(const char* v) const {
         return value(std::string_view(v));
     }
 
-    JsonWriter& value(float v) {
+    JsonWriter& value(float v) const {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
@@ -731,7 +736,7 @@ public:
         return *this;
     }
 
-    JsonWriter& value(int v) {
+    JsonWriter& value(int v) const {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
@@ -742,7 +747,7 @@ public:
         return *this;
     }
 
-    JsonWriter& value(uint32_t v) {
+    JsonWriter& value(uint32_t v) const {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
@@ -753,24 +758,29 @@ public:
         return *this;
     }
 
-    JsonWriter& value(bool v) {
+    JsonWriter& value(bool v) const {
         add_comma();
         buffer_ += v ? "true" : "false";
         set_needs_comma();
         return *this;
     }
 
-    JsonWriter& null_value() {
+    JsonWriter& null_value() const {
         add_comma();
         buffer_ += "null";
         set_needs_comma();
         return *this;
     }
 
-    void clear() {
+    void clear() const {
         buffer_.clear();
         current_depth_ = 0;
         needs_comma_[0] = false;
+    }
+
+    // Allows checking if the internal buffer is truncated.
+    bool is_truncated() const {
+        return buffer_.is_full();
     }
 
 private:
