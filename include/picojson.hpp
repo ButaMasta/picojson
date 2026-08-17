@@ -349,6 +349,13 @@ class JsonParser {
 public:
     JsonParser() = default;
 
+    // Error types
+    enum class ParseError {
+        None,
+        OutOfMemory,
+        InvalidFormat
+    };
+
     /**
      * @brief Parses a json string provided by the user and returns the root 
      * JsonValue. 
@@ -360,6 +367,7 @@ public:
     JsonObject parse(char* json_str) {
         cursor_ = json_str;
         pool_offset_ = 0;
+        last_error_ = ParseError::None;
         skip_whitespace();
 
         return detail::Returnable(parse_value());
@@ -367,11 +375,14 @@ public:
 
     // Helper function to see memory used when parsing, useful for tuning the buffer.
     size_t get_used_memory() const { return pool_offset_; }
+    // Helper function to see the last reported error from the parser.
+    ParseError get_last_error() { return last_error_; }
 
 private:
     alignas(std::max_align_t) std::byte pool_[MaxBytes];
     size_t pool_offset_ = 0;
     char* cursor_;
+    ParseError last_error_ = ParseError::None;
     
     /**
      * @brief Generic allocator to reserve space in the pool.
@@ -387,6 +398,7 @@ private:
         size_t padding = (remainder == 0) ? 0 : (alignment - remainder);
 
         if (pool_offset_ + padding + sizeof(T) > MaxBytes) {
+            last_error_ = ParseError::OutOfMemory;
             return nullptr; // Out of memory.
         }
         pool_offset_ += padding;
@@ -518,6 +530,7 @@ private:
         } else if (*cursor_ == 'n' && match_literal("null", 4)) {
             value = std::monostate();
         } else {
+            last_error_ = ParseError::InvalidFormat;
             value = std::monostate();
         }
         return value;
@@ -532,11 +545,17 @@ private:
      */
     detail::KeyValueNode* parse_object() {
         // Make sure cursor is at the start of an object.
-        if (*cursor_ != '{') return nullptr;
+        if (*cursor_ != '{') {
+            last_error_ = ParseError::InvalidFormat;
+            return nullptr;
+        }
         next_token();
 
         // If this is an empty object return as such.
-        if (*cursor_ == '}') return nullptr;
+        if (*cursor_ == '}') {
+            last_error_ = ParseError::InvalidFormat;
+            return nullptr;
+        }
 
         // Object to parse.
         detail::KeyValueNode* root = alloc_node<detail::KeyValueNode>();
@@ -594,7 +613,11 @@ private:
                 break;
             }
 
-            if (*cursor_ != ',') return nullptr; // Improperly formatted array.
+            // Improperly formatted array.
+            if (*cursor_ != ',') {
+                last_error_ = ParseError::InvalidFormat;
+                return nullptr;
+            }
 
             next_token();
             current->next = alloc_node<detail::ArrayNode>();

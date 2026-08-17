@@ -130,7 +130,7 @@ int main() {
                         .key("even more").value("nested!")
                     .end_object()
                 .end_array()
-                .value(3.45)
+                .value(3.45f)
             .end_array()
         .key("key2").value("value2")
         .key("key3").start_object()
