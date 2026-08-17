@@ -675,35 +675,35 @@ public:
     // Returns the buffer directly for use.
     const StaticStringBuffer<MaxCapacity>& get_buffer() const { return buffer_; }
 
-    JsonWriter& start_object() const {
+    JsonWriter& start_object() {
         add_comma();
         buffer_ += '{';
         push_level();
         return *this;
     }
 
-    JsonWriter& end_object() const {
+    JsonWriter& end_object() {
         buffer_ += '}';
         pop_level();
         set_needs_comma();
         return *this;
     }
 
-    JsonWriter& start_array() const {
+    JsonWriter& start_array() {
         add_comma();
         buffer_ += '[';
         push_level();
         return *this;
     }
 
-    JsonWriter& end_array() const {
+    JsonWriter& end_array() {
         buffer_ += ']';
         pop_level();
         set_needs_comma();
         return *this;
     }
 
-    JsonWriter& key(std::string_view k) const {
+    JsonWriter& key(std::string_view k) {
         add_comma();
         buffer_ += '"';
         buffer_.append(k.data(), k.length());
@@ -712,7 +712,7 @@ public:
         return *this;
     }
 
-    JsonWriter& value(std::string_view v) const {
+    JsonWriter& value(std::string_view v) {
         add_comma();
         buffer_ += '"';
         buffer_.append(v.data(), v.length());
@@ -721,11 +721,11 @@ public:
         return *this;
     }
 
-    JsonWriter& value(const char* v) const {
+    JsonWriter& value(const char* v) {
         return value(std::string_view(v));
     }
 
-    JsonWriter& value(float v) const {
+    JsonWriter& value(float v) {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
@@ -736,7 +736,7 @@ public:
         return *this;
     }
 
-    JsonWriter& value(int v) const {
+    JsonWriter& value(int v) {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
@@ -747,7 +747,7 @@ public:
         return *this;
     }
 
-    JsonWriter& value(uint32_t v) const {
+    JsonWriter& value(uint32_t v) {
         add_comma();
         char buf[32];
         auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
@@ -758,21 +758,21 @@ public:
         return *this;
     }
 
-    JsonWriter& value(bool v) const {
+    JsonWriter& value(bool v) {
         add_comma();
         buffer_ += v ? "true" : "false";
         set_needs_comma();
         return *this;
     }
 
-    JsonWriter& null_value() const {
+    JsonWriter& null_value() {
         add_comma();
         buffer_ += "null";
         set_needs_comma();
         return *this;
     }
 
-    void clear() const {
+    void clear() {
         buffer_.clear();
         current_depth_ = 0;
         needs_comma_[0] = false;
