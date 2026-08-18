@@ -1,4 +1,7 @@
 // picojson.hpp
+#ifndef PICOJSON_HPP
+#define PICOJSON_HPP
+
 #include <cstddef>
 #include <cctype>
 #include <cstring>
@@ -814,3 +817,5 @@ private:
         needs_comma_[current_depth_] = true;
     }
 };
+
+#endif // PICOJSON_HPP
