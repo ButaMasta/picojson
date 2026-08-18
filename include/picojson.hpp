@@ -16,74 +16,6 @@ class JsonObject;
 class JsonArray;
 
 /**
- * @brief This is the class allowing for normal string appending and use but only 
- * using static memory instead of dynamically allocated memory.
- * 
- * @tparam capacity The max capacity of the contained string.
- */
-template <size_t Capacity>
-class StaticStringBuffer {
-public:
-    StaticStringBuffer() {
-        // Start with a null terminator.
-        if (Capacity > 0) data_[0] = '\0';
-    }
-
-    // Appending a single character.
-    StaticStringBuffer& operator+=(char c) {
-        // Check if there is space for the character and the null terminator.
-        if (Capacity > 0 && size_ < (Capacity - 1)) {
-            data_[size_++] = c;
-            data_[size_] = '\0'; // Always append a null terminator.
-        }
-        return *this;
-    }
-
-    // Append a null-terminated string.
-    StaticStringBuffer& operator+=(const char* str) {
-        if (str) {
-            append(str, std::strlen(str));
-        }
-        return *this;
-    }
-
-    // Appending a char buffer with len.
-    void append(const char* str, size_t len) {
-        // Early exit.
-        if (Capacity == 0 || size_ >= (Capacity - 1) || str == nullptr || len == 0) {
-            return;
-        }
-
-        // Calculate available space, reserving 1 byte for null-terminator.
-        size_t available = (Capacity - 1) - size_;
-        size_t to_copy = (len < available) ? len : available;
-
-        std::memcpy(data_ + size_, str, to_copy);
-        size_ += to_copy;
-        data_[size_] = '\0'; // Always append a null terminator.
-    }
-
-    // Clears the buffer for use.
-    void clear() {
-        size_ = 0;
-        if (Capacity > 0) data_[0] = '\0';
-    }
-
-    // Check if the buffer is full.
-    bool is_full() const {
-        return Capacity == 0 || size_ >= (Capacity - 1);
-    }
-
-    const char* data() const { return data_; }
-    size_t length() const { return size_; }
-    size_t size() const { return size_; }
-
-private:
-    char data_[Capacity];
-    size_t size_ = 0;
-};
-
-/**
  * @brief This is the namespace containing the core elements of the functionality 
  * that need not be exposed.
  */
@@ -118,6 +50,74 @@ namespace detail {
     struct ArrayNode {
         Value value;
         ArrayNode* next;
+    };
+
+    /**
+     * @brief This is the class allowing for normal string appending and use but only 
+     * using static memory instead of dynamically allocated memory.
+     * 
+     * @tparam capacity The max capacity of the contained string.
+     */
+    template <size_t Capacity>
+    class StaticStringBuffer {
+    public:
+        StaticStringBuffer() {
+            // Start with a null terminator.
+            if (Capacity > 0) data_[0] = '\0';
+        }
+
+        // Appending a single character.
+        StaticStringBuffer& operator+=(char c) {
+            // Check if there is space for the character and the null terminator.
+            if (Capacity > 0 && size_ < (Capacity - 1)) {
+                data_[size_++] = c;
+                data_[size_] = '\0'; // Always append a null terminator.
+            }
+            return *this;
+        }
+
+        // Append a null-terminated string.
+        StaticStringBuffer& operator+=(const char* str) {
+            if (str) {
+                append(str, std::strlen(str));
+            }
+            return *this;
+        }
+
+        // Appending a char buffer with len.
+        void append(const char* str, size_t len) {
+            // Early exit.
+            if (Capacity == 0 || size_ >= (Capacity - 1) || str == nullptr || len == 0) {
+                return;
+            }
+
+            // Calculate available space, reserving 1 byte for null-terminator.
+            size_t available = (Capacity - 1) - size_;
+            size_t to_copy = (len < available) ? len : available;
+
+            std::memcpy(data_ + size_, str, to_copy);
+            size_ += to_copy;
+            data_[size_] = '\0'; // Always append a null terminator.
+        }
+
+        // Clears the buffer for use.
+        void clear() {
+            size_ = 0;
+            if (Capacity > 0) data_[0] = '\0';
+        }
+
+        // Check if the buffer is full.
+        bool is_full() const {
+            return Capacity == 0 || size_ >= (Capacity - 1);
+        }
+
+        const char* data() const { return data_; }
+        size_t length() const { return size_; }
+        size_t size() const { return size_; }
+
+    private:
+        char data_[Capacity];
+        size_t size_ = 0;
     };
 
     /**
@@ -190,10 +190,10 @@ namespace detail {
     }
 
     template <size_t C>
-    inline void serialize_value(const Value& val, StaticStringBuffer<C>& out);
+    inline void serialize_value(const Value& val, detail::StaticStringBuffer<C>& out);
 
     template <size_t C>
-    inline void serialize_object(const KeyValueNode* node, StaticStringBuffer<C>& out) {
+    inline void serialize_object(const KeyValueNode* node, detail::StaticStringBuffer<C>& out) {
         out += '{';
         const KeyValueNode* current = node;
         while (current) {
@@ -208,7 +208,7 @@ namespace detail {
     }
 
     template <size_t C>
-    inline void serialize_array(const ArrayNode* node, StaticStringBuffer<C>& out) {
+    inline void serialize_array(const ArrayNode* node, detail::StaticStringBuffer<C>& out) {
         out += '[';
         const ArrayNode* current = node;
         while (current) {
@@ -220,7 +220,7 @@ namespace detail {
     }
 
     template <size_t C>
-    inline void serialize_value(const Value& val, StaticStringBuffer<C>& out) {
+    inline void serialize_value(const Value& val, detail::StaticStringBuffer<C>& out) {
         std::visit([&out](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
 
@@ -679,7 +679,7 @@ public:
     }
 
     // Returns the buffer directly for use.
-    const StaticStringBuffer<MaxCapacity>& get_buffer() const { return buffer_; }
+    const detail::StaticStringBuffer<MaxCapacity>& get_buffer() const { return buffer_; }
 
     JsonWriter& start_object() {
         add_comma();
@@ -790,7 +790,7 @@ public:
     }
 
 private:
-    StaticStringBuffer<MaxCapacity> buffer_;
+    detail::StaticStringBuffer<MaxCapacity> buffer_;
     bool needs_comma_[MaxDepth];
     size_t current_depth_ = 0;
 
