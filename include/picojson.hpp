@@ -234,7 +234,7 @@ namespace detail {
                 out += '"';
                 out.append(arg.data(), arg.length());
                 out += '"';
-            } else if constexpr (std::is_same_v<T, float> || std::is_same_v<int32_t>) {
+            } else if constexpr (std::is_same_v<T, float> || std::is_same_v<T, int32_t>) {
                 char buf[32];
                 auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), arg);
                 if (ec == std::errc()) {
